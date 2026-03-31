@@ -1,0 +1,6 @@
+[theme]
+primaryColor = "#E60000" # Farmacia Etica Red
+backgroundColor = "#FFFFFF" # Clean White
+secondaryBackgroundColor = "#F0F2F6" # Light gray for the sidebar/boxes
+textColor = "#262730" # Dark gray for readable text
+font = "sans serif"
