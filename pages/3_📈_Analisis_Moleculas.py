@@ -82,14 +82,16 @@ if "chosen_key" not in st.session_state:
 if "df2_cache" not in st.session_state:
     try:
         st.session_state["df2_cache"] = read_csv_from_s3(path_imp)
-    except Exception:
-        st.session_state["df2_cache"] = pd.read_csv(path_imp)
+    except Exception as e:
+            st.error(f"❌ Error descargando imports de AWS: {e}")
+            st.stop()
 
 # Prefer S3-backed analysis if configured
 try:
     df = read_csv_from_s3(path_ana)
-except Exception:
-    df = load_data(path_ana)
+except Exception as e:
+    st.error(f"❌ Error descargando análisis de AWS: {e}")
+    st.stop()
     
 df2 = st.session_state["df2_cache"]
 
