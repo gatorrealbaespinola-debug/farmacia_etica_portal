@@ -172,6 +172,7 @@ else:
                     existing_row = df[mask].iloc[0]
                     ana_mol = ana_mol.fillna(existing_row)
                     
+                    
                     df.set_index('key', inplace=True)
                     df.loc[chosen_key] = ana_mol
                     df.reset_index(inplace=True)
@@ -186,8 +187,12 @@ else:
 
             with tab_regs:
                 st.write("## Importaciones por registro ultimos años:")
+                
+                # 👈 Quick fix: Rename 'level_1' back to 'trims' if Pandas messed it up
+                if "level_1" in imp_trim.columns:
+                    imp_trim = imp_trim.rename(columns={"level_1": "trims"})
+                    
                 ada.plot_imports_by_trim(imp_trim)
-
             if st.button("⏪ Terminar análisis y volver"):
                 st.session_state.analysis_active = False
                 st.session_state.show_new_button = False

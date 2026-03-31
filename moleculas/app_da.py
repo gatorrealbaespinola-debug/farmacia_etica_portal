@@ -5,7 +5,7 @@ import streamlit as st
 import numpy as np
 import plotly.express as px
 import ast
-from acc_features import build_features
+from .acc_features import build_features
 
 # give real significance to p_value maybe with means_square error?
 # add R2 to the plot
@@ -20,6 +20,9 @@ def all_t(df):
     df["trims"].max(),
     freq="Q"
     ).astype(str)
+
+    all_trims.name = "trims"  # 👈 ADD THIS LINE HERE!
+    
     return all_trims
 
 def single_mol_analisis(df,regs,plot=True):
