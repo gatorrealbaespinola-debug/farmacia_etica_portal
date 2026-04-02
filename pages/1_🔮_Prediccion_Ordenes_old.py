@@ -25,40 +25,54 @@ if not st.session_state.get("authenticated", False):
 def load_ml_objects():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
+    # 1. Scaler
     try:
-        # 1. Cargar Objetos de Clustering desde AWS S3
-        scaler = joblib.load(fetch_s3_file_as_bytes("models/clustering_scaler.pkl"))
-        pca = joblib.load(fetch_s3_file_as_bytes("models/custering_pca.pkl"))
-        kmeans = joblib.load(fetch_s3_file_as_bytes("models/clustering_kmeans.pkl"))
-        
-        # 2. Cargar los Metadatos de Confianza/Error desde AWS S3
-        meta_df = pd.read_csv(fetch_s3_file_as_bytes("data/metadata_skus.csv"))
-        meta_df["Producto ID"] = meta_df["Producto ID"].astype(str)
-        
+        scaler = joblib.load(fetch_s3_file_as_bytes("models/scaler.pkl"))
     except Exception as e:
-        st.error(f"❌ Error cargando los modelos o metadatos desde AWS S3: {e}")
+        st.error("❌ AWS S3 Error: No se encontró el archivo 'models/clustering_scaler.pkl'")
         st.stop()
+        
+    # 2. PCA
+    try:
+        pca = joblib.load(fetch_s3_file_as_bytes("models/pca.pkl"))
+    except Exception as e:
+        st.error("❌ AWS S3 Error: No se encontró el archivo 'models/clustering_pca.pkl'")
+        st.stop()
+
+    # 3. KMeans
+    try:
+        kmeans = joblib.load(fetch_s3_file_as_bytes("models/kmeans.pkl"))
+    except Exception as e:
+        st.error("❌ AWS S3 Error: No se encontró el archivo 'models/clustering_kmeans.pkl'")
+        st.stop()
+        
+    # 4. Metadata (Opcional: no crashea si no existe)
+    try:
+        meta_df = pd.read_csv(fetch_s3_file_as_bytes("models/metadata_skus.csv"))
+        meta_df["Producto ID"] = meta_df["Producto ID"].astype(str)
+    except Exception as e:
+        st.warning("⚠️ No se encontró 'models/metadata_skus.csv' en AWS S3. Se mostrarán los valores de confianza como 'Desconocido'.")
+        meta_df = pd.DataFrame(columns=["Producto ID", "Confianza (%)", "Rango (+/-)"])
     
-    # 3. Cargar las Redes Neuronales desde AWS S3
+    # 5. Redes Neuronales
     models = {}
     for i in range(4):
         try:
             model = GlobalLSTMRNN(
                 n_features=11, 
-                conv_channels=64,  # Ajusta a tu Optuna best param
-                lstm_hidden=64,    # Ajusta a tu Optuna best param
-                rnn_hidden=32,     # Ajusta a tu Optuna best param
-                rnn_act_fun="TANH" # Ajusta a tu Optuna best param
+                conv_channels=64,  # Adjust to your Optuna params
+                lstm_hidden=64,    # Adjust to your Optuna params
+                rnn_hidden=64,     # Adjust to your Optuna params
+                rnn_act_fun="TANH" # Adjust to your Optuna params
             ).to(device)
             
-            # Descargamos los pesos (.pth) a la memoria RAM y los cargamos al modelo
-            model_bytes = fetch_s3_file_as_bytes(f"models/best_lstm_model_cluster_{i}.pth")
+            model_bytes = fetch_s3_file_as_bytes(f"models/cluster_{i}_model.pth")
             model.load_state_dict(torch.load(model_bytes, map_location=device, weights_only=True))
             model.eval()
             models[i] = model
             
         except Exception as e:
-            st.error(f"❌ Error cargando el modelo neuronal (Cluster {i}) desde AWS S3: {e}")
+            st.error(f"❌ AWS S3 Error: No se encontró la red neuronal 'models/best_lstm_model_cluster_{i}.pth'")
             st.stop()
             
     return scaler, pca, kmeans, meta_df, models, device
