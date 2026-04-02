@@ -205,7 +205,7 @@ if uploaded_file is not None:
         # --- Cruce con la tabla de Metadatos ---
         results_df = results_df.merge(meta_df, on="Producto ID", how="left")
         results_df["Confianza (%)"] = results_df["Confianza (%)"].fillna("Desconocido")
-        results_df["Rango (+/-)"] = results_df["Rango (+/-)"].fillna("Desconocido")
+        results_df["Rango de Error"] = results_df["Rango de Error"].fillna("Desconocido")
 
     st.success("✅ ¡Predicción completada exitosamente!")
     st.dataframe(results_df, use_container_width=True)
