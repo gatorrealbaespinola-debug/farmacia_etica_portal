@@ -1,13 +1,74 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta
 import time
+import torch
+import joblib
 
-# Security Check: Kick them back to the main page if not logged in
+# --- Imports from your custom modules ---
+from name_dict import extract_id, normalize_name, assign_id
+from neurla_network import GlobalLSTMRNN, extract_product_features_from_prod_df, extract_inference_tensor
+from aws import fetch_s3_file_as_bytes
+
+# ---------------------------------------------------------
+# Security Check
+# ---------------------------------------------------------
 if not st.session_state.get("authenticated", False):
     st.warning("🔒 Por favor, inicie sesión en la página de Inicio para acceder a esta herramienta.")
     st.stop()
 
+# ---------------------------------------------------------
+# Caching the Models & Metadata
+# ---------------------------------------------------------
+@st.cache_resource
+def load_ml_objects():
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    
+    try:
+        # 1. Cargar Objetos de Clustering desde AWS S3
+        scaler = joblib.load(fetch_s3_file_as_bytes("models/scaler.pkl"))
+        pca = joblib.load(fetch_s3_file_as_bytes("models/pca.pkl"))
+        kmeans = joblib.load(fetch_s3_file_as_bytes("models/kmeans.pkl"))
+        
+        # 2. Cargar los Metadatos de Confianza/Error desde AWS S3
+        meta_df = pd.read_csv(fetch_s3_file_as_bytes("models/metadata_skus.csv"))
+        meta_df["Producto ID"] = meta_df["Producto ID"].astype(str)
+        
+    except Exception as e:
+        st.error(f"❌ Error cargando los modelos o metadatos desde AWS S3: {e}")
+        st.stop()
+    
+    # 3. Cargar las Redes Neuronales desde AWS S3
+    models = {}
+    for i in range(4):
+        try:
+            model = GlobalLSTMRNN(
+                n_features=11, 
+                conv_channels=64,  # Ajusta a tu Optuna best param
+                lstm_hidden=64,    # Ajusta a tu Optuna best param
+                rnn_hidden=64,     # Ajusta a tu Optuna best param
+                rnn_act_fun="TANH" # Ajusta a tu Optuna best param
+            ).to(device)
+            
+            # Descargamos los pesos (.pth) a la memoria RAM y los cargamos al modelo
+            model_bytes = fetch_s3_file_as_bytes(f"models/cluster_{i}_model.pth")
+            model.load_state_dict(torch.load(model_bytes, map_location=device, weights_only=True))
+            model.eval()
+            models[i] = model
+            
+        except Exception as e:
+            st.error(f"❌ Error cargando el modelo neuronal (Cluster {i}) desde AWS S3: {e}")
+            st.stop()
+            
+    return scaler, pca, kmeans, meta_df, models, device
+
+# Carga en memoria la primera vez que alguien abre la app
+scaler, pca, kmeans, meta_df, cluster_models, device = load_ml_objects()
+
+# ---------------------------------------------------------
+# UI Layout
+# ---------------------------------------------------------
 st.title("🔴 Predicción de Órdenes (Próximas 3 Semanas)")
 
 window_size_weeks = 30 
@@ -23,17 +84,104 @@ uploaded_file = st.file_uploader("Arrastre su archivo CSV de órdenes aquí", ty
 
 if uploaded_file is not None:
     with st.spinner('Procesando datos y ejecutando la red neuronal... 🔮'):
-        time.sleep(2) # Placeholder for your PyTorch code
         
-        fake_results = {
-            "Producto": ["Aspirina 500mg", "Ibuprofeno 200mg", "Vitamina C"],
-            "Semana 1 (Pred)": [120, 85, 300],
-            "Semana 2 (Pred)": [125, 90, 310],
-            "Semana 3 (Pred)": [115, 80, 290],
-            "Confianza (%)": [88.5, 92.1, 75.0],
-            "Rango (+/-)": ["± 12", "± 8", "± 45"]
-        }
-        results_df = pd.DataFrame(fake_results)
+        # --- Limpieza de Datos ---
+        df = pd.read_csv(uploaded_file)
+        col_filter=["Cliente", "Fecha creación", "Productos", "Status Farmacia Ética", "Cantidad en la cesta"]
+        df = df[[c for c in col_filter if c in df.columns]]
+        
+        if "Status Farmacia Ética" in df.columns:
+            df = df[df["Status Farmacia Ética"]=="Entregado"]
+            
+        df["Productos"] = df["Productos"].apply(lambda x: x[:x.rfind(",")] if isinstance(x, str) and "," in x else x)
+        df["product_id"] = df["Productos"].apply(extract_id)
+        df["normalized_name"] = df["Productos"].apply(normalize_name)
+
+        check = df[df["product_id"].notna()].groupby("normalized_name")["product_id"].nunique()
+        valid_names = check[check == 1].index
+
+        reference = (
+            df[(df["normalized_name"].isin(valid_names)) & (df["product_id"].notna())]
+            .drop_duplicates("normalized_name")
+            .set_index("normalized_name")["product_id"]
+            .to_dict()
+        )
+
+        df["product_id_final"] = df.apply(lambda x: assign_id(x, reference), axis=1)
+        df = df.dropna(subset=["product_id_final", "Fecha creación"])
+
+        df["Fecha creación"] = pd.to_datetime(df["Fecha creación"], errors="coerce")
+        df["Fecha creación"] = df["Fecha creación"].dt.strftime('%Y-%U')
+
+        agg_df = (
+            df.groupby(["Fecha creación", "product_id_final"], as_index=False)
+            .agg({
+                "Cliente": lambda x: set(x),
+                "Cantidad en la cesta": "sum",
+                "product_id_final": "first"
+            })
+        )
+
+        week_str = agg_df["Fecha creación"].astype(str)
+        agg_df["Fecha creación"] = pd.to_datetime(week_str + "-0", format="%Y-%U-%w", errors="coerce")
+        
+        mask_nat = agg_df["Fecha creación"].isna()
+        if mask_nat.any():
+            def week_to_date(s):
+                try:
+                    y, w = s.split("-")
+                    p = pd.Period(year=int(y), week=int(w), freq="W-SUN")
+                    return p.start_time
+                except Exception:
+                    return pd.NaT
+            agg_df.loc[mask_nat, "Fecha creación"] = week_str[mask_nat].apply(week_to_date)
+
+        # --- Extracción de Features e Inferencia ---
+        predictions = []
+        
+        for pid, prod_df in agg_df.groupby("product_id_final"):
+            prod_df = prod_df.set_index("Fecha creación").sort_index()
+            if prod_df.index.duplicated().any():
+                prod_df = prod_df.groupby(prod_df.index).agg({
+                    "Cliente": lambda x: set().union(*[s if isinstance(s, set) else set() for s in x]),
+                    "Cantidad en la cesta": "sum",
+                    "product_id_final": "first"
+                })
+                
+            full_idx = pd.date_range(start=prod_df.index.min(), end=prod_df.index.max(), freq="W-SUN")
+            prod_df = prod_df.reindex(full_idx, fill_value=0)
+            prod_df["Cliente"] = prod_df["Cliente"].apply(lambda x: x if isinstance(x, set) else set())
+
+            feats = extract_product_features_from_prod_df(prod_df)
+            feat_df = pd.DataFrame([feats]) 
+            
+            X_scaled = scaler.transform(feat_df)
+            X_pca = pca.transform(X_scaled)
+            cluster_id = kmeans.predict(X_pca)[0]
+            
+            tensor_input = extract_inference_tensor(prod_df, window_size=30).to(device)
+            
+            model = cluster_models[cluster_id]
+            with torch.no_grad():
+                total_3_week_pred = model(tensor_input).item() 
+                total_3_week_pred = max(0, total_3_week_pred) 
+            
+            weekly_pred = int(round(total_3_week_pred / 3))
+            
+            predictions.append({
+                "Producto ID": str(pid),
+                "Cluster Asignado": cluster_id,
+                "Semana 1 (Pred)": weekly_pred,
+                "Semana 2 (Pred)": weekly_pred,
+                "Semana 3 (Pred)": int(total_3_week_pred - (weekly_pred * 2))
+            })
+
+        results_df = pd.DataFrame(predictions)
+
+        # --- Cruce con la tabla de Metadatos ---
+        results_df = results_df.merge(meta_df, on="Producto ID", how="left")
+        results_df["Confianza (%)"] = results_df["Confianza (%)"].fillna("Desconocido")
+        results_df["Rango (+/-)"] = results_df["Rango (+/-)"].fillna("Desconocido")
 
     st.success("✅ ¡Predicción completada exitosamente!")
     st.dataframe(results_df, use_container_width=True)
