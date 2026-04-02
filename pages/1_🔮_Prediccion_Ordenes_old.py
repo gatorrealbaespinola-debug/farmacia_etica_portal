@@ -51,7 +51,7 @@ def load_ml_objects():
         
     # 4. Metadata (This stays the same, assuming you named it metadata_skus.csv)
     try:
-        meta_df = pd.read_csv(fetch_s3_file_as_bytes("models/metadata_skus.csv"))
+        meta_df = pd.read_csv(fetch_s3_file_as_bytes("data/metadata_skus.csv"))
         meta_df["Producto ID"] = meta_df["Producto ID"].astype(str)
     except Exception as e:
         st.warning("⚠️ No se encontró 'models/metadata_skus.csv' en AWS S3. Se mostrarán los valores de confianza como 'Desconocido'.")
@@ -65,7 +65,7 @@ def load_ml_objects():
                 n_features=11, 
                 conv_channels=64,  # Adjust to your Optuna params
                 lstm_hidden=64,    # Adjust to your Optuna params
-                rnn_hidden=64,     # Adjust to your Optuna params
+                rnn_hidden=32,     # Adjust to your Optuna params
                 rnn_act_fun="TANH" # Adjust to your Optuna params
             ).to(device)
             
