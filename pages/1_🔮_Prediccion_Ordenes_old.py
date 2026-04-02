@@ -198,7 +198,7 @@ if uploaded_file is not None:
                 total_3_week_pred = np.expm1(log_pred) 
                 
                 # Prevenir cualquier número negativo por si acaso
-                total_3_week_pred = max(0, total_3_week_pred)
+                total_3_week_pred = int(max(0, total_3_week_pred))
             
             predictions.append({
                 "Producto ID": str(pid),
