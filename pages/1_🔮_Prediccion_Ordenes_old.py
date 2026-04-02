@@ -7,7 +7,7 @@ import torch
 import joblib
 
 # --- Imports from your custom modules ---
-from name_dict import extract_id, normalize_name, assign_id
+from forecast.name_dict import extract_id, normalize_name, assign_id
 from forecast.neurla_network import GlobalLSTMRNN, extract_product_features_from_prod_df, extract_inference_tensor
 from aws import fetch_s3_file_as_bytes
 
