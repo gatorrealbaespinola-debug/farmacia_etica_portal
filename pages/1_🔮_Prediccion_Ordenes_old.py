@@ -25,28 +25,31 @@ if not st.session_state.get("authenticated", False):
 def load_ml_objects():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
-
-    # 2. PCA
-    try:
-        pca = joblib.load(fetch_s3_file_as_bytes("models/pca.pkl"))
-    except Exception as e:
-        st.error("❌ AWS S3 Error: No se encontró el archivo 'models/clustering_pca.pkl'")
-        st.stop()
     # 1. Scaler
     try:
-        scaler = joblib.load(fetch_s3_file_as_bytes("models/scaler.pkl"))
+        # UPDATED NAME: clustering_scaler.pkl
+        scaler = joblib.load(fetch_s3_file_as_bytes("models/clustering_scaler.pkl"))
     except Exception as e:
         st.error("❌ AWS S3 Error: No se encontró el archivo 'models/clustering_scaler.pkl'")
         st.stop()
         
+    # 2. PCA
+    try:
+        # UPDATED NAME: clustering_pca.pkl
+        pca = joblib.load(fetch_s3_file_as_bytes("models/clustering_pca.pkl"))
+    except Exception as e:
+        st.error("❌ AWS S3 Error: No se encontró el archivo 'models/clustering_pca.pkl'")
+        st.stop()
+
     # 3. KMeans
     try:
-        kmeans = joblib.load(fetch_s3_file_as_bytes("models/kmeans.pkl"))
+        # UPDATED NAME: clustering_kmeans.pkl
+        kmeans = joblib.load(fetch_s3_file_as_bytes("models/clustering_kmeans.pkl"))
     except Exception as e:
         st.error("❌ AWS S3 Error: No se encontró el archivo 'models/clustering_kmeans.pkl'")
         st.stop()
         
-    # 4. Metadata (Opcional: no crashea si no existe)
+    # 4. Metadata (This stays the same, assuming you named it metadata_skus.csv)
     try:
         meta_df = pd.read_csv(fetch_s3_file_as_bytes("models/metadata_skus.csv"))
         meta_df["Producto ID"] = meta_df["Producto ID"].astype(str)
@@ -66,7 +69,8 @@ def load_ml_objects():
                 rnn_act_fun="TANH" # Adjust to your Optuna params
             ).to(device)
             
-            model_bytes = fetch_s3_file_as_bytes(f"models/cluster_{i}_model.pth")
+            # UPDATED NAME: best_lstm_model_cluster_{i}.pth
+            model_bytes = fetch_s3_file_as_bytes(f"models/best_lstm_model_cluster_{i}.pth")
             model.load_state_dict(torch.load(model_bytes, map_location=device, weights_only=True))
             model.eval()
             models[i] = model
