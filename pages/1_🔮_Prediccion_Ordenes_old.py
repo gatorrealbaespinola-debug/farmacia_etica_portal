@@ -8,7 +8,7 @@ import joblib
 
 # --- Imports from your custom modules ---
 from name_dict import extract_id, normalize_name, assign_id
-from neurla_network import GlobalLSTMRNN, extract_product_features_from_prod_df, extract_inference_tensor
+from forecast.neurla_network import GlobalLSTMRNN, extract_product_features_from_prod_df, extract_inference_tensor
 from aws import fetch_s3_file_as_bytes
 
 # ---------------------------------------------------------
@@ -27,12 +27,12 @@ def load_ml_objects():
     
     try:
         # 1. Cargar Objetos de Clustering desde AWS S3
-        scaler = joblib.load(fetch_s3_file_as_bytes("models/scaler.pkl"))
-        pca = joblib.load(fetch_s3_file_as_bytes("models/pca.pkl"))
-        kmeans = joblib.load(fetch_s3_file_as_bytes("models/kmeans.pkl"))
+        scaler = joblib.load(fetch_s3_file_as_bytes("models/clustering_scaler.pkl"))
+        pca = joblib.load(fetch_s3_file_as_bytes("models/custering_pca.pkl"))
+        kmeans = joblib.load(fetch_s3_file_as_bytes("models/clustering_kmeans.pkl"))
         
         # 2. Cargar los Metadatos de Confianza/Error desde AWS S3
-        meta_df = pd.read_csv(fetch_s3_file_as_bytes("models/metadata_skus.csv"))
+        meta_df = pd.read_csv(fetch_s3_file_as_bytes("data/metadata_skus.csv"))
         meta_df["Producto ID"] = meta_df["Producto ID"].astype(str)
         
     except Exception as e:
@@ -47,12 +47,12 @@ def load_ml_objects():
                 n_features=11, 
                 conv_channels=64,  # Ajusta a tu Optuna best param
                 lstm_hidden=64,    # Ajusta a tu Optuna best param
-                rnn_hidden=64,     # Ajusta a tu Optuna best param
+                rnn_hidden=32,     # Ajusta a tu Optuna best param
                 rnn_act_fun="TANH" # Ajusta a tu Optuna best param
             ).to(device)
             
             # Descargamos los pesos (.pth) a la memoria RAM y los cargamos al modelo
-            model_bytes = fetch_s3_file_as_bytes(f"models/cluster_{i}_model.pth")
+            model_bytes = fetch_s3_file_as_bytes(f"models/best_lstm_model_cluster_{i}.pth")
             model.load_state_dict(torch.load(model_bytes, map_location=device, weights_only=True))
             model.eval()
             models[i] = model
@@ -87,11 +87,11 @@ if uploaded_file is not None:
         
         # --- Limpieza de Datos ---
         df = pd.read_csv(uploaded_file)
-        col_filter=["Cliente", "Fecha creación", "Productos", "Status Farmacia Ética", "Cantidad en la cesta"]
+        col_filter=["Cliente", "Fecha creación", "Productos", "Estado", "Cantidad en la cesta"]
         df = df[[c for c in col_filter if c in df.columns]]
         
         if "Status Farmacia Ética" in df.columns:
-            df = df[df["Status Farmacia Ética"]=="Entregado"]
+            df = df[df["Estado"]=="Pedido de venta"]
             
         df["Productos"] = df["Productos"].apply(lambda x: x[:x.rfind(",")] if isinstance(x, str) and "," in x else x)
         df["product_id"] = df["Productos"].apply(extract_id)
@@ -166,14 +166,10 @@ if uploaded_file is not None:
                 total_3_week_pred = model(tensor_input).item() 
                 total_3_week_pred = max(0, total_3_week_pred) 
             
-            weekly_pred = int(round(total_3_week_pred / 3))
-            
             predictions.append({
                 "Producto ID": str(pid),
                 "Cluster Asignado": cluster_id,
-                "Semana 1 (Pred)": weekly_pred,
-                "Semana 2 (Pred)": weekly_pred,
-                "Semana 3 (Pred)": int(total_3_week_pred - (weekly_pred * 2))
+                "Prox. 3 semanas": total_3_week_pred,
             })
 
         results_df = pd.DataFrame(predictions)
