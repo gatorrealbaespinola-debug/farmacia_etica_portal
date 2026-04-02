@@ -25,6 +25,13 @@ if not st.session_state.get("authenticated", False):
 def load_ml_objects():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
+
+    # 2. PCA
+    try:
+        pca = joblib.load(fetch_s3_file_as_bytes("models/pca.pkl"))
+    except Exception as e:
+        st.error("❌ AWS S3 Error: No se encontró el archivo 'models/clustering_pca.pkl'")
+        st.stop()
     # 1. Scaler
     try:
         scaler = joblib.load(fetch_s3_file_as_bytes("models/scaler.pkl"))
@@ -32,13 +39,6 @@ def load_ml_objects():
         st.error("❌ AWS S3 Error: No se encontró el archivo 'models/clustering_scaler.pkl'")
         st.stop()
         
-    # 2. PCA
-    try:
-        pca = joblib.load(fetch_s3_file_as_bytes("models/pca.pkl"))
-    except Exception as e:
-        st.error("❌ AWS S3 Error: No se encontró el archivo 'models/clustering_pca.pkl'")
-        st.stop()
-
     # 3. KMeans
     try:
         kmeans = joblib.load(fetch_s3_file_as_bytes("models/kmeans.pkl"))
