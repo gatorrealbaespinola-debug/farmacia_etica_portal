@@ -191,8 +191,14 @@ if uploaded_file is not None:
             
             model = cluster_models[cluster_id]
             with torch.no_grad():
-                total_3_week_pred = model(tensor_input).item() 
-                total_3_week_pred = max(0, total_3_week_pred) 
+                # El modelo escupe el valor logarítmico (log1p)
+                log_pred = model(tensor_input).item() 
+                
+                # Invertimos el logaritmo usando expm1 (Exponencial menos 1)
+                total_3_week_pred = np.expm1(log_pred) 
+                
+                # Prevenir cualquier número negativo por si acaso
+                total_3_week_pred = max(0, total_3_week_pred)
             
             predictions.append({
                 "Producto ID": str(pid),
