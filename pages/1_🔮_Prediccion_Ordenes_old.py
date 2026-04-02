@@ -95,7 +95,7 @@ start_date_needed = datetime.today() - timedelta(weeks=window_size_weeks)
 st.info(f"""
 **Instrucciones de Carga:**
 Para que la Inteligencia Artificial pueda predecir el futuro, necesita contexto histórico. 
-Por favor, descargue los datos del sistema empezando exactamente desde el: **{start_date_needed.strftime('%d-%m-%Y')}**.
+Por favor, descargue los datos del sistema empezando desde el: **{start_date_needed.strftime('%d-%m-%Y')}** o antes.
 """)
 
 uploaded_file = st.file_uploader("Arrastre su archivo CSV de órdenes aquí", type=["csv"])
@@ -167,7 +167,17 @@ if uploaded_file is not None:
                 })
                 
             full_idx = pd.date_range(start=prod_df.index.min(), end=prod_df.index.max(), freq="W-SUN")
-            prod_df = prod_df.reindex(full_idx, fill_value=0)
+            
+            # 1. Reindexamos sin forzar ceros (se llenará con valores nulos temporalmente)
+            prod_df = prod_df.reindex(full_idx)
+            
+            # 2. Rellenamos con 0 SOLO la columna de las cantidades
+            prod_df["Cantidad en la cesta"] = prod_df["Cantidad en la cesta"].fillna(0)
+            
+            # 3. Restauramos el ID del producto para las nuevas semanas vacías
+            prod_df["product_id_final"] = pid
+            
+            # 4. Aseguramos que los clientes sean sets vacíos
             prod_df["Cliente"] = prod_df["Cliente"].apply(lambda x: x if isinstance(x, set) else set())
 
             feats = extract_product_features_from_prod_df(prod_df)
