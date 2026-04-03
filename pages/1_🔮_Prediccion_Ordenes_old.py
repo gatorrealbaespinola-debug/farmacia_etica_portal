@@ -316,6 +316,3 @@ if uploaded_file is not None:
         file_name="simulacion_compras.csv", 
         mime="text/csv"
     )
-    
-    csv_to_download = results_df.to_csv(index=False).encode('utf-8')
-    st.download_button("📥 Descargar Predicciones (CSV)", data=csv_to_download, file_name="predicciones.csv", mime="text/csv")
