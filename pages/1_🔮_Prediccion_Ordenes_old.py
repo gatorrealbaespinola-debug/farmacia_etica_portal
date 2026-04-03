@@ -62,7 +62,7 @@ def load_ml_objects():
         meta_product = meta_product.rename( columns = {"Referencia interna" : "Producto ID"} )
     except Exception as e:
         st.warning("⚠️ No se encontró 'data/fe_products_cost.csv' en AWS S3. Se mostrarán los valores de confianza como 'Desconocido'.")
-        meta_df = pd.DataFrame(columns=["Producto ID", "Confianza (%)", "Rango (+/-)"])
+        st.stop()
     
     # 5. Redes Neuronales
     models = {}
