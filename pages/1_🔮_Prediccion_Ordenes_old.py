@@ -249,7 +249,7 @@ if uploaded_file is not None:
 
     # Crear una copia de los resultados para la simulación
     sim_df = results_df.copy()
-    sim_df["Error Numérico"] = sim_df[col_rango].apply(parse_error)
+    sim_df["Error Numérico"] = sim_df["Rango de Error"].apply(parse_error)
     
     # Asegurar que el Coste sea un número puro para las matemáticas
     sim_df["Coste"] = pd.to_numeric(sim_df["Coste"], errors="coerce").fillna(0.0)
@@ -270,7 +270,7 @@ if uploaded_file is not None:
         use_container_width=True,
         hide_index=True,
         # Bloqueamos las columnas que el usuario NO debería poder editar
-        disabled=["Producto ID", "Nombre", col_rango, "Confianza (%)"] 
+        disabled=["Producto ID", "Nombre", "Rango de Error", "Confianza (%)"] 
     )
     
     # --- C. Finanzas: Calcular Costo Total por Origen ---
