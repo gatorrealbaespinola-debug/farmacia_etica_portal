@@ -221,9 +221,100 @@ if uploaded_file is not None:
         results_df = results_df.merge(meta_df, on="Producto ID", how="left")
         results_df = results_df.merge(meta_product, on="Producto ID", how="left")
         results_df["Confianza (%)"] = results_df["Confianza (%)"].fillna("Desconocido")
-        results_df["Rango de Error"] = results_df["Rango de Error"].fillna("Desconocido")
+        results_df["Rango de Error"] = results_df["Rango de Error"].fillna("Desconocido")        
         results_df = results_df[desired_cols]
-        results_df = results_df.dropna()
+
+    # ==========================================
+    # 5. SIMULADOR DE COMPRAS E INVENTARIO
+    # ==========================================
+    st.success("✅ ¡Predicción completada exitosamente!")
+    
+    st.divider()
+    st.header("🛠️ Simulador de Órdenes de Compra")
+    st.write("Ajusta tu nivel de riesgo y modifica los valores en la tabla para simular tu inversión por país.")
+    
+    # --- A. Slider de Riesgo ---
+    st.markdown("#### 1. Perfil de Riesgo (Agresividad de compra)")
+    risk_level = st.slider(
+        "0% = Conservador (- Rango Error) | 50% = Neutral (Predicción Exacta) | 100% = Agresivo (+ Rango Error)", 
+        min_value=0, max_value=100, value=50, step=1
+    )
+    
+    # Función para extraer el número puro del "Rango de Error" (ej: "± 12" -> 12.0)
+    import re
+    def parse_error(val):
+        if pd.isna(val) or val == "Desconocido": return 0.0
+        m = re.search(r'[\d\.]+', str(val))
+        return float(m.group()) if m else 0.0
+
+    # Crear una copia de los resultados para la simulación
+    sim_df = results_df.copy()
+    sim_df["Error Numérico"] = sim_df[col_rango].apply(parse_error)
+    
+    # Asegurar que el Coste sea un número puro para las matemáticas
+    sim_df["Coste"] = pd.to_numeric(sim_df["Coste"], errors="coerce").fillna(0.0)
+    
+    # Calcular nueva cantidad según el slider (Factor va de -1.0 a +1.0)
+    factor = (risk_level - 50) / 50.0 
+    sim_df["Prox. 3 semanas"] = (sim_df["Prox. 3 semanas"] + (sim_df["Error Numérico"] * factor)).round().astype(int)
+    
+    # Evitar inventarios negativos
+    sim_df["Prox. 3 semanas"] = sim_df["Prox. 3 semanas"].apply(lambda x: max(0, x))
+    sim_df = sim_df.drop(columns=["Error Numérico"]) # Limpiamos la columna temporal
+    
+    # --- B. Tabla Editable ---
+    st.markdown("#### 2. Tabla Editable (Modifica Cantidades, Coste u Origen)")
+    
+    edited_df = st.data_editor(
+        sim_df,
+        use_container_width=True,
+        hide_index=True,
+        # Bloqueamos las columnas que el usuario NO debería poder editar
+        disabled=["Producto ID", "Nombre", col_rango, "Confianza (%)"] 
+    )
+    
+    # --- C. Finanzas: Calcular Costo Total por Origen ---
+    st.divider()
+    st.markdown("#### 3. Inversión Estimada por Origen")
+    
+    # Multiplicamos la Cantidad Editada * Coste Editado
+    edited_df["Inversión"] = edited_df["Prox. 3 semanas"] * edited_df["Coste"]
+    
+    # Agrupamos por país de origen
+    cost_by_origin = edited_df.groupby("Origen")["Inversión"].sum().reset_index()
+    cost_by_origin = cost_by_origin.sort_values("Inversión", ascending=False)
+    
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        # Mostramos la tabla resumen con formato de dinero
+        st.dataframe(
+            cost_by_origin.style.format({"Inversión": "${:,.2f}"}), 
+            hide_index=True, 
+            use_container_width=True
+        )
+        
+        # Métrica de inversión global
+        total_inv = cost_by_origin["Inversión"].sum()
+        st.metric(label="Inversión Global Simulada", value=f"${total_inv:,.2f}")
+        
+    with col2:
+        # Gráfico dinámico de barras
+        if not cost_by_origin.empty and cost_by_origin["Inversión"].sum() > 0:
+            st.bar_chart(data=cost_by_origin.set_index("Origen"))
+        else:
+            st.info("No hay datos de inversión para graficar.")
+
+    # --- D. Descargar Simulación ---
+    st.divider()
+    # Quitamos la columna matemática temporal antes de descargar
+    csv_to_download = edited_df.drop(columns=["Inversión"], errors="ignore").to_csv(index=False).encode('utf-8')
+    st.download_button(
+        "📥 Descargar Simulación Final (CSV)", 
+        data=csv_to_download, 
+        file_name="simulacion_compras.csv", 
+        mime="text/csv"
+    )
 
     st.success("✅ ¡Predicción completada exitosamente!")
     st.dataframe(results_df, use_container_width=True)
