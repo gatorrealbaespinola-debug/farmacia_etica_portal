@@ -223,6 +223,7 @@ if uploaded_file is not None:
         results_df["Confianza (%)"] = results_df["Confianza (%)"].fillna("Desconocido")
         results_df["Rango de Error"] = results_df["Rango de Error"].fillna("Desconocido")
         results_df = results_df[desired_cols]
+        results_df = results_df.dropna()
 
     st.success("✅ ¡Predicción completada exitosamente!")
     st.dataframe(results_df, use_container_width=True)
