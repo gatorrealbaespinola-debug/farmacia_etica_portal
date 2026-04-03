@@ -86,10 +86,10 @@ def load_ml_objects():
             st.error(f"❌ AWS S3 Error: No se encontró la red neuronal 'models/best_lstm_model_cluster_{i}.pth'")
             st.stop()
             
-    return scaler, pca, kmeans, meta_df, models, device
+    return scaler, pca, kmeans, meta_df, meta_product, models, device
 
 # Carga en memoria la primera vez que alguien abre la app
-scaler, pca, kmeans, meta_df, cluster_models, device = load_ml_objects()
+scaler, pca, kmeans, meta_df, meta_product, cluster_models, device = load_ml_objects()
 
 # ---------------------------------------------------------
 # UI Layout
