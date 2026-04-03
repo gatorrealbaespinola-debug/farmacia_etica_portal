@@ -10,7 +10,7 @@ import boto3
 from pathlib import Path
 
 # MUST BE THE FIRST COMMAND
-st.set_page_config(page_title="Farmacia Etica Portal", page_icon="🔴", layout="wide")
+st.set_page_config(page_title="Farmac-IA Etica Portal", page_icon="🔴", layout="wide")
 
 # --- All your amazing AWS, S3, and Email helper functions go here ---
 # (I am keeping them exactly as you wrote them in easy_app.py)
@@ -91,7 +91,7 @@ def send_email(to_email: str, subject: str, body: str) -> bool:
         return False
 
 # --- UI LOGIC ---
-st.title("🔴 Portal de Inteligencia Artificial - Farmacia Etica")
+st.title("🔴 Portal Farmac-IA etica")
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
