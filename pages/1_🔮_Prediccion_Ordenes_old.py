@@ -60,7 +60,7 @@ def load_ml_objects():
     try:
         meta_product = pd.read_csv(fetch_s3_file_as_bytes("data/fe_products_cost.csv"))
         meta_product = meta_product.rename( columns = {"Referencia interna" : "Producto ID"} )
-        meta_product["Producto ID"] = meta_product["Producto ID"].astype(str)
+        meta_product["Producto ID"] = meta_product["Producto ID"].astype(int).astype(str)
     except Exception as e:
         st.warning("⚠️ No se encontró 'data/fe_products_cost.csv' en AWS S3. Se mostrarán los valores de confianza como 'Desconocido'.")
         st.stop()
@@ -226,7 +226,6 @@ if uploaded_file is not None:
 
     st.success("✅ ¡Predicción completada exitosamente!")
     st.dataframe(results_df, use_container_width=True)
-    st.dataframe(meta_product, use_container_width=True)
     
     csv_to_download = results_df.to_csv(index=False).encode('utf-8')
     st.download_button("📥 Descargar Predicciones (CSV)", data=csv_to_download, file_name="predicciones.csv", mime="text/csv")
