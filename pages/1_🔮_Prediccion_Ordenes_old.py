@@ -226,6 +226,7 @@ if uploaded_file is not None:
 
     st.success("✅ ¡Predicción completada exitosamente!")
     st.dataframe(results_df, use_container_width=True)
+    st.dataframe(meta_product, use_container_width=True)
     
     csv_to_download = results_df.to_csv(index=False).encode('utf-8')
     st.download_button("📥 Descargar Predicciones (CSV)", data=csv_to_download, file_name="predicciones.csv", mime="text/csv")
