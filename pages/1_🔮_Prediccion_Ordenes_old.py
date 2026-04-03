@@ -60,6 +60,7 @@ def load_ml_objects():
     try:
         meta_product = pd.read_csv(fetch_s3_file_as_bytes("data/fe_products_cost.csv"))
         meta_product = meta_product.rename( columns = {"Referencia interna" : "Producto ID"} )
+        meta_df["Producto ID"] = meta_df["Producto ID"].astype(str)
     except Exception as e:
         st.warning("⚠️ No se encontró 'data/fe_products_cost.csv' en AWS S3. Se mostrarán los valores de confianza como 'Desconocido'.")
         st.stop()
