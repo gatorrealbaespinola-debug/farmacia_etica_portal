@@ -56,6 +56,13 @@ def load_ml_objects():
     except Exception as e:
         st.warning("⚠️ No se encontró 'models/metadata_skus.csv' en AWS S3. Se mostrarán los valores de confianza como 'Desconocido'.")
         meta_df = pd.DataFrame(columns=["Producto ID", "Confianza (%)", "Rango (+/-)"])
+    # 5. Metadata 2 (products info)
+    try:
+        meta_product = pd.read_csv(fetch_s3_file_as_bytes("data/fe_products_cost.csv"))
+        meta_product = meta_product.rename( columns = {"Referencia interna" : "Producto ID"} )
+    except Exception as e:
+        st.warning("⚠️ No se encontró 'data/fe_products_cost.csv' en AWS S3. Se mostrarán los valores de confianza como 'Desconocido'.")
+        meta_df = pd.DataFrame(columns=["Producto ID", "Confianza (%)", "Rango (+/-)"])
     
     # 5. Redes Neuronales
     models = {}
@@ -209,9 +216,12 @@ if uploaded_file is not None:
         results_df = pd.DataFrame(predictions)
 
         # --- Cruce con la tabla de Metadatos ---
+        desired_cols = ["Producto ID", "Nombre", "Prox. 3 semanas", "Rango de Error", "Confianza (%)", "Origen", "Coste"]
         results_df = results_df.merge(meta_df, on="Producto ID", how="left")
+        results_df = results_df.merge(meta_product, on="Producto ID", how="left")
         results_df["Confianza (%)"] = results_df["Confianza (%)"].fillna("Desconocido")
         results_df["Rango de Error"] = results_df["Rango de Error"].fillna("Desconocido")
+        results_df = results_df[desired_cols]
 
     st.success("✅ ¡Predicción completada exitosamente!")
     st.dataframe(results_df, use_container_width=True)
