@@ -17,13 +17,13 @@ st.markdown(
     <style>
     /* Targets standard text in the sidebar */
     [data-testid="stSidebar"] .stMarkdown p {
-        font-size: 18px !important; 
+        font-size: 30px !important; 
     }
     
     /* Targets radio buttons and checkboxes in the sidebar */
     [data-testid="stSidebar"] .stRadio label, 
     [data-testid="stSidebar"] .stCheckbox label {
-        font-size: 18px !important; 
+        font-size: 30px !important; 
     }
     </style>
     """,
