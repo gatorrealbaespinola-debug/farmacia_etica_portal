@@ -11,7 +11,24 @@ from pathlib import Path
 
 # MUST BE THE FIRST COMMAND
 st.set_page_config(page_title="Farmac-IA Etica Portal", page_icon="🔴", layout="wide")
-
+# --- Custom CSS to make the sidebar text bigger ---
+st.markdown(
+    """
+    <style>
+    /* Targets standard text in the sidebar */
+    [data-testid="stSidebar"] .stMarkdown p {
+        font-size: 18px !important; 
+    }
+    
+    /* Targets radio buttons and checkboxes in the sidebar */
+    [data-testid="stSidebar"] .stRadio label, 
+    [data-testid="stSidebar"] .stCheckbox label {
+        font-size: 18px !important; 
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 # --- All your amazing AWS, S3, and Email helper functions go here ---
 # (I am keeping them exactly as you wrote them in easy_app.py)
 admin_email = "gate472001@gmail.com"
